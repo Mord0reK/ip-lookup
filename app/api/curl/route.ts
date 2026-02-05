@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateIP, validateDomain } from '@/lib/validators';
 import { fetchIPApiData, fetchAbuseIPDB } from '@/lib/api-clients';
 import { resolveDNS } from '@/lib/dns-resolver';
-import { promises as dns } from 'dns';
 
 export const runtime = 'edge';
 
@@ -44,31 +43,33 @@ export async function GET(request: NextRequest) {
     let resolvedIP: string | undefined;
     let type: 'ipv4' | 'ipv6' | 'domain' = isDomain ? 'domain' : (ipType || 'ipv4');
 
+    // Get DNS records first
+    const dnsRecords = await resolveDNS(trimmedQuery, type);
+
+    // If it's a domain, try to resolve IP from DNS records
     if (isDomain) {
-      try {
-        const addresses = await dns.resolve4(trimmedQuery);
-        resolvedIP = addresses[0];
+      const aRecords = dnsRecords.A || [];
+      const aaaaRecords = dnsRecords.AAAA || [];
+
+      if (aRecords.length > 0 && aRecords[0]?.data) {
+        resolvedIP = aRecords[0].data;
         type = 'ipv4';
-      } catch {
-        try {
-          const addresses6 = await dns.resolve6(trimmedQuery);
-          resolvedIP = addresses6[0];
-          type = 'ipv6';
-        } catch {
-          return new NextResponse('Error: Could not resolve domain\n', { 
-            status: 400,
-            headers: { 'Content-Type': 'text/plain' }
-          });
-        }
+      } else if (aaaaRecords.length > 0 && aaaaRecords[0]?.data) {
+        resolvedIP = aaaaRecords[0].data;
+        type = 'ipv6';
+      } else {
+        return new NextResponse('Error: Could not resolve domain\n', {
+          status: 400,
+          headers: { 'Content-Type': 'text/plain' }
+        });
       }
     }
 
     const ipToQuery = resolvedIP || trimmedQuery;
 
-    const [ipapi, abuseipdb, dnsRecords] = await Promise.all([
+    const [ipapi, abuseipdb] = await Promise.all([
       fetchIPApiData(ipToQuery),
-      fetchAbuseIPDB(ipToQuery),
-      resolveDNS(ipToQuery, type as 'ipv4' | 'ipv6' | 'domain')
+      fetchAbuseIPDB(ipToQuery)
     ]);
 
     const ipapiData = ipapi;
