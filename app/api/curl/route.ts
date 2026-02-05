@@ -4,6 +4,8 @@ import { fetchIPApiData, fetchAbuseIPDB } from '@/lib/api-clients';
 import { resolveDNS } from '@/lib/dns-resolver';
 import { promises as dns } from 'dns';
 
+export const runtime = 'edge';
+
 function formatBox(lines: string[], title: string): string {
   const maxLen = Math.max(...lines.map(l => l.length), title.length);
   const border = '─'.repeat(maxLen + 4);

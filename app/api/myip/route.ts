@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 // Helper function to extract client IP from request headers
 function getClientIP(request: NextRequest): string {
   // Check various headers where the IP might be stored
