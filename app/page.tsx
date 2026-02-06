@@ -529,7 +529,7 @@ function ASNSection({ data, loading }: { data: any, loading: boolean }) {
     )
   }
 
-  const asnData = data.asn || data
+  const asnData = (data.asn && typeof data.asn === 'object') ? data.asn : data
 
   return (
     <Card className="bg-zinc-900/80 border border-zinc-800 rounded-3xl shadow-xl backdrop-blur-sm">
