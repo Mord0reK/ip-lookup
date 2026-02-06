@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
   try {
     let resolvedIP: string | undefined;
     let type: 'ipv4' | 'ipv6' | 'domain' = isDomain ? 'domain' : (ipType || 'ipv4');
+    let dnsRecords: any = {};
+    let ipapi: any = null;
+    let abuseipdb: any = null;
 
     // Extract Edge information (available on Cloudflare Pages)
     let edge: EdgeInfo | null = null;
@@ -56,11 +59,10 @@ export async function GET(request: NextRequest) {
       // Edge info not available (local development)
     }
 
-    // Get DNS records first
-    const dnsRecords = await resolveDNS(trimmedQuery, type);
-
-    // If it's a domain, try to resolve IP from DNS records
     if (isDomain) {
+      // For domains, we must resolve DNS first to get the IP for AbuseIPDB
+      dnsRecords = await resolveDNS(trimmedQuery, 'domain');
+      
       const aRecords = dnsRecords.A || [];
       const aaaaRecords = dnsRecords.AAAA || [];
 
@@ -69,14 +71,26 @@ export async function GET(request: NextRequest) {
       } else if (aaaaRecords.length > 0 && aaaaRecords[0]?.data) {
         resolvedIP = aaaaRecords[0].data;
       }
+
+      const ipToQuery = resolvedIP || trimmedQuery;
+      
+      // If we have a resolved IP, we can check AbuseIPDB, otherwise skip it or it might fail
+      [ipapi, abuseipdb] = await Promise.all([
+        fetchIPApiData(ipToQuery),
+        resolvedIP ? fetchAbuseIPDB(resolvedIP) : Promise.resolve(null)
+      ]);
+    } else {
+      // For IPs, execute all fetch operations in parallel for maximum speed
+      const [dnsResult, ipapiResult, abuseResult] = await Promise.all([
+        resolveDNS(trimmedQuery, type as 'ipv4' | 'ipv6'),
+        fetchIPApiData(trimmedQuery),
+        fetchAbuseIPDB(trimmedQuery)
+      ]);
+      
+      dnsRecords = dnsResult;
+      ipapi = ipapiResult;
+      abuseipdb = abuseResult;
     }
-
-    const ipToQuery = resolvedIP || trimmedQuery;
-
-    const [ipapi, abuseipdb] = await Promise.all([
-      fetchIPApiData(ipToQuery),
-      fetchAbuseIPDB(ipToQuery)
-    ]);
 
     const result: LookupResult = {
       query: trimmedQuery,

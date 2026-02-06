@@ -47,17 +47,26 @@ export async function resolveDNS(query: string, type: 'ipv4' | 'ipv6' | 'domain'
   const records: DNSRecords = {};
   const isIP = isIPv4(query) || isIPv6(query);
 
+  // Define which record types to query based on input type
+  // For IPs, we practically only care about PTR (reverse DNS)
+  // For domains, we want to see everything
+  const typesToQuery = isIP ? ['PTR'] : DNS_TYPES;
+
   // Perform DNS lookups using Cloudflare DNS-over-HTTPS
   await Promise.all(
-    DNS_TYPES.map(async (dnsType) => {
+    typesToQuery.map(async (dnsType) => {
       try {
         let queryName = query;
 
         // For PTR records, convert IP to reverse DNS format
         if (dnsType === 'PTR') {
           if (!isIP) {
-            records[dnsType] = [];
-            return;
+            // For domains, PTR is rarely useful or queryable directly like this, but occasionally used for checks
+            // We can skip PTR for domains to save a request if we want, but let's keep it for completeness if not IP
+            if (!isIP) {
+                 records[dnsType] = [];
+                 return;
+            }
           }
 
           if (isIPv4(query)) {
@@ -65,18 +74,20 @@ export async function resolveDNS(query: string, type: 'ipv4' | 'ipv6' | 'domain'
           } else if (isIPv6(query)) {
             queryName = ipv6ToReverseDNS(query);
           }
-        } else if (isIP && ['A', 'AAAA', 'MX', 'CNAME', 'NS', 'SOA'].includes(dnsType)) {
-          // Skip these record types for IP addresses
-          records[dnsType] = [];
-          return;
         }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout for DNS
 
         const response = await fetch(
           `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(queryName)}&type=${dnsType}`,
           {
             headers: { accept: 'application/dns-json' },
+            signal: controller.signal
           }
         );
+        
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           records[dnsType] = [];
