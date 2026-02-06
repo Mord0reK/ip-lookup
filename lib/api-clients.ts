@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import { IPApiResponse, AbuseIPDBResponse } from '@/types/api';
 
 export async function fetchIPApiData(ip: string): Promise<IPApiResponse | null> {
@@ -6,12 +5,17 @@ export async function fetchIPApiData(ip: string): Promise<IPApiResponse | null> 
     const url = `https://api.ipapi.is?q=${ip}`;
     console.log(`[API] Fetching: ${url}`);
     
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 15000);
+
     const res = await fetch(url, { 
       headers: {
         'Accept': 'application/json',
       },
-      timeout: 15000
-    } as any);
+      signal: controller.signal
+    });
+
+    clearTimeout(id);
     
     console.log(`[API] Response status: ${res.status}`);
     
@@ -39,13 +43,18 @@ export async function fetchAbuseIPDB(ip: string): Promise<AbuseIPDBResponse | nu
     
     const url = `https://api.abuseipdb.com/api/v2/check?ipAddress=${ip}&maxAgeInDays=90&verbose`;
     
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 15000);
+
     const res = await fetch(url, {
       headers: {
         'Key': apiKey,
         'Accept': 'application/json'
       },
-      timeout: 15000
-    } as any);
+      signal: controller.signal
+    });
+
+    clearTimeout(id);
     
     if (!res.ok) {
       console.error(`[API] AbuseIPDB error: ${res.status}`);
