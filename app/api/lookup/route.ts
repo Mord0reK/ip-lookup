@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (isDomain) {
-      // For domains, we must resolve DNS first to get the IP for AbuseIPDB
+      // For domains, we must resolve DNS first to get the IP for ipapi.is
       dnsRecords = await resolveDNS(trimmedQuery, 'domain');
       
       const aRecords = dnsRecords.A || [];
@@ -72,12 +72,18 @@ export async function GET(request: NextRequest) {
         resolvedIP = aaaaRecords[0].data;
       }
 
-      const ipToQuery = resolvedIP || trimmedQuery;
+      // If we cannot resolve the domain to an IP, return an error
+      if (!resolvedIP) {
+        return NextResponse.json(
+          { error: 'Could not resolve domain to IP address. Domain may not have A or AAAA records.' },
+          { status: 400 }
+        );
+      }
       
-      // If we have a resolved IP, we can check AbuseIPDB, otherwise skip it or it might fail
+      // Query ipapi.is and AbuseIPDB using the resolved IP
       [ipapi, abuseipdb] = await Promise.all([
-        fetchIPApiData(ipToQuery),
-        resolvedIP ? fetchAbuseIPDB(resolvedIP) : Promise.resolve(null)
+        fetchIPApiData(resolvedIP),
+        fetchAbuseIPDB(resolvedIP)
       ]);
     } else {
       // For IPs, execute all fetch operations in parallel for maximum speed

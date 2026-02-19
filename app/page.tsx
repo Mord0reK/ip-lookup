@@ -224,6 +224,7 @@ function ResultsView({ result, asnData, loadingAsn, onFetchAsn }: {
           {result.ipapi?.location?.latitude && result.ipapi?.location?.longitude ? (
             <>
               <LocationMap
+                key={result.resolvedIP || result.query}
                 latitude={result.ipapi.location.latitude}
                 longitude={result.ipapi.location.longitude}
                 city={result.ipapi.location.city || "Unknown"}
