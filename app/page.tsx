@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { SearchBar } from "./components/search-bar"
 import { HistoryPanel } from "./components/history-panel"
 import { LocationMap } from "./components/location-map"
@@ -22,7 +22,7 @@ export default function HomePage() {
   const [asnData, setAsnData] = useState<any>(null)
   const [loadingAsn, setLoadingAsn] = useState(false)
 
-  const fetchASNData = async (asnNumber: number) => {
+  const fetchASNData = useCallback(async (asnNumber: number) => {
     setLoadingAsn(true)
     try {
       const res = await fetch(`/api/asn?asn=${asnNumber}`)
@@ -35,9 +35,9 @@ export default function HomePage() {
     } finally {
       setLoadingAsn(false)
     }
-  }
+  }, [])
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = useCallback(async (query: string) => {
     setIsLoading(true)
     setHasSearched(true)
     setError(null)
@@ -65,7 +65,6 @@ export default function HomePage() {
         })
       }
 
-      // Auto-fetch ASN data if available
       if (data.ipapi?.asn?.asn) {
         fetchASNData(data.ipapi.asn.asn)
       }
@@ -76,7 +75,7 @@ export default function HomePage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [fetchASNData])
 
   // Auto-load IP from URL param or user's IP on page load
   useEffect(() => {
@@ -111,8 +110,7 @@ export default function HomePage() {
     loadIP()
 
     return () => window.removeEventListener('resize', handleResize)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [handleSearch])
 
   return (
     <div className="flex min-h-screen bg-black">
