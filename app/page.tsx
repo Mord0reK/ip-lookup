@@ -18,7 +18,7 @@ export default function HomePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [asnData, setAsnData] = useState<any>(null)
   const [loadingAsn, setLoadingAsn] = useState(false)
 
@@ -78,33 +78,53 @@ export default function HomePage() {
     }
   }
 
-  // Auto-load user's IP on page load
+  // Auto-load IP from URL param or user's IP on page load
   useEffect(() => {
-    const loadUserIP = async () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const lookupParam = urlParams.get('lookup')
+
+    // Set sidebar open by default on desktop
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(true)
+      }
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+
+    const loadIP = async () => {
       try {
+        if (lookupParam && lookupParam.trim()) {
+          handleSearch(lookupParam.trim())
+          return
+        }
+
         const response = await fetch('/api/myip')
         const data = await response.json()
         if (data.ip && data.ip !== 'Unknown') {
           handleSearch(data.ip)
         }
       } catch (err) {
-        console.error('Failed to load user IP:', err)
-        // Silently fail - user can manually search
+        console.error('Failed to load IP:', err)
       }
     }
-    loadUserIP()
+    loadIP()
+
+    return () => window.removeEventListener('resize', handleResize)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
-    <div className="min-h-screen bg-black flex">
+    <div className="flex min-h-screen bg-black">
       {/* Sidebar - History */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-80 bg-zinc-900 border-r border-zinc-800 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-40 w-80 bg-zinc-900 border-r border-zinc-800 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 lg:static`}
+        }`}
       >
-        <HistoryPanel onSelect={handleSearch} />
+        <div className="h-full overflow-y-auto">
+          <HistoryPanel onSelect={handleSearch} />
+        </div>
       </aside>
 
       {/* Overlay for mobile */}
@@ -116,21 +136,21 @@ export default function HomePage() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex flex-col flex-1 h-screen min-w-0 overflow-y-auto">
         {/* Header/Navbar */}
-        <header className="border-b border-zinc-800 bg-black/50 backdrop-blur-md sticky top-0 z-20">
-          <div className="w-full px-4 lg:px-6 h-16 flex items-center justify-between lg:justify-center relative gap-4">
+        <header className="sticky top-0 z-20 border-b border-zinc-800 bg-black/50 backdrop-blur-md shrink-0">
+          <div className="relative flex items-center justify-between w-full h-16 gap-4 px-4 lg:px-6 lg:justify-center">
             {/* Mobile menu toggle */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 hover:bg-zinc-800 rounded-lg lg:hidden text-zinc-400 transition-colors"
+              className="p-2 transition-colors rounded-lg hover:bg-zinc-800 lg:hidden text-zinc-400"
             >
-              <Menu className="h-6 w-6" />
+              <Menu className="w-6 h-6" />
             </button>
 
             {/* Desktop title */}
-            <div className="absolute left-6 top-1/2 -translate-y-1/2 hidden xl:block">
-              <h1 className="text-xl font-bold bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent whitespace-nowrap">
+            <div className="absolute hidden -translate-y-1/2 left-6 top-1/2 xl:block">
+              <h1 className="text-xl font-bold text-transparent bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text whitespace-nowrap">
                 Wyszukiwarka IP
               </h1>
             </div>
@@ -139,17 +159,6 @@ export default function HomePage() {
             <div className="flex-1 max-w-2xl">
               <SearchBar onSearch={handleSearch} isLoading={isLoading} />
             </div>
-
-            {/* Desktop history toggle */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="hidden lg:flex p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 transition-colors"
-              title="Toggle History"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-            </button>
           </div>
         </header>
 
@@ -157,8 +166,8 @@ export default function HomePage() {
         <main className="flex-1 container mx-auto px-4 py-6 space-y-6 max-w-[1600px] overflow-auto">
           {/* Error message */}
           {error && (
-            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 text-red-400">
-              <AlertCircle className="h-5 w-5" />
+            <div className="flex items-center gap-3 p-4 text-red-400 border rounded-lg bg-red-500/10 border-red-500/20">
+              <AlertCircle className="w-5 h-5" />
               <span>{error}</span>
             </div>
           )}
@@ -167,7 +176,7 @@ export default function HomePage() {
           {isLoading ? (
             <div className="flex items-center justify-center py-16">
               <div className="flex flex-col items-center gap-4 text-zinc-500">
-                <svg className="animate-spin h-12 w-12 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg className="w-12 h-12 animate-spin text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
@@ -182,12 +191,12 @@ export default function HomePage() {
               onFetchAsn={fetchASNData}
             />
           ) : !hasSearched && (
-            <div className="text-center text-zinc-500 py-24">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-sky-500/10 to-blue-500/10 mb-6">
-                <Globe className="h-10 w-10 opacity-50" />
+            <div className="py-24 text-center text-zinc-500">
+              <div className="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-full bg-gradient-to-br from-sky-500/10 to-blue-500/10">
+                <Globe className="w-10 h-10 opacity-50" />
               </div>
-              <h2 className="text-xl font-semibold mb-2 text-zinc-200">Gotowy do wyszukiwania</h2>
-              <p className="text-sm mb-6">Wprowadź adres IP lub domenę aby uzyskać szczegółowe informacje</p>
+              <h2 className="mb-2 text-xl font-semibold text-zinc-200">Gotowy do wyszukiwania</h2>
+              <p className="mb-6 text-sm">Wprowadź adres IP lub domenę aby uzyskać szczegółowe informacje</p>
             </div>
           )}
         </main>
@@ -206,7 +215,7 @@ function ResultsView({ result, asnData, loadingAsn, onFetchAsn }: {
   return (
     <div className="space-y-6">
       {/* Top Row: Network & Security */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Network & Infrastructure Card */}
         <NetworkInfrastructureCard result={result} onFetchAsn={onFetchAsn} />
 
@@ -215,7 +224,7 @@ function ResultsView({ result, asnData, loadingAsn, onFetchAsn }: {
       </div>
 
       {/* Second Row: Geo Details & Map */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Geo Details (span 2) */}
         <GeoDetailsCard result={result} />
 
@@ -233,10 +242,10 @@ function ResultsView({ result, asnData, loadingAsn, onFetchAsn }: {
               />
               {/* Live Location Badge */}
               <div className="absolute top-4 left-4 z-10 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-xl">
-                <span className="text-xs font-medium text-white flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                <span className="flex items-center gap-2 text-xs font-medium text-white">
+                  <span className="relative flex w-2 h-2">
+                    <span className="absolute inline-flex w-full h-full rounded-full opacity-75 animate-ping bg-sky-400"></span>
+                    <span className="relative inline-flex w-2 h-2 rounded-full bg-sky-500"></span>
                   </span>
                   Live
                 </span>
@@ -264,10 +273,10 @@ function NetworkInfrastructureCard({ result, onFetchAsn }: { result: LookupResul
   const ipapi = result.ipapi
 
   return (
-    <Card className="bg-zinc-900/80 border border-zinc-800 rounded-3xl shadow-xl backdrop-blur-sm">
+    <Card className="border shadow-xl bg-zinc-900/80 border-zinc-800 rounded-3xl backdrop-blur-sm">
       <CardContent className="p-6">
-        <div className="flex items-center gap-3 border-b border-zinc-800 pb-4 mb-4">
-          <div className="p-2 bg-sky-500/10 rounded-lg">
+        <div className="flex items-center gap-3 pb-4 mb-4 border-b border-zinc-800">
+          <div className="p-2 rounded-lg bg-sky-500/10">
             <Server className="w-6 h-6 text-sky-500" />
           </div>
           <h2 className="text-lg font-semibold text-zinc-100">Sieć i Infrastruktura</h2>
@@ -290,8 +299,8 @@ function NetworkInfrastructureCard({ result, onFetchAsn }: { result: LookupResul
 
           {/* Datacenter info */}
           {ipapi?.datacenter && (
-            <div className="border-t border-zinc-800 pt-3 mt-3">
-              <span className="text-zinc-500 text-xs uppercase tracking-wider block mb-2">Centrum Danych</span>
+            <div className="pt-3 mt-3 border-t border-zinc-800">
+              <span className="block mb-2 text-xs tracking-wider uppercase text-zinc-500">Centrum Danych</span>
               <div className="space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="text-zinc-500">Nazwa:</span>
@@ -311,8 +320,8 @@ function NetworkInfrastructureCard({ result, onFetchAsn }: { result: LookupResul
 
           {/* Route */}
           {ipapi?.asn?.route && (
-            <div className="flex justify-between items-center py-2 border-t border-zinc-800">
-              <span className="text-zinc-500 text-xs uppercase tracking-wider">Trasa (Route)</span>
+            <div className="flex items-center justify-between py-2 border-t border-zinc-800">
+              <span className="text-xs tracking-wider uppercase text-zinc-500">Trasa (Route)</span>
               <div className="bg-zinc-800 text-sky-400 px-2 py-0.5 rounded text-xs border border-zinc-700 font-mono">
                 {ipapi.asn.route}
               </div>
@@ -321,23 +330,23 @@ function NetworkInfrastructureCard({ result, onFetchAsn }: { result: LookupResul
 
           {/* Edge info */}
           {result.edge && (
-            <div className="border-t border-zinc-800 pt-3 mt-3">
-              <span className="text-zinc-500 text-xs uppercase tracking-wider block mb-2">Lokalizacja Zapytania (Edge)</span>
+            <div className="pt-3 mt-3 border-t border-zinc-800">
+              <span className="block mb-2 text-xs tracking-wider uppercase text-zinc-500">Lokalizacja Zapytania (Edge)</span>
               <div className="grid grid-cols-2 gap-2 text-[10px]">
                 <div className="flex flex-col">
-                  <span className="text-zinc-500 uppercase">Centrum (Colo)</span>
-                  <span className="text-sky-400 font-mono">{result.edge.colo}</span>
+                  <span className="uppercase text-zinc-500">Centrum (Colo)</span>
+                  <span className="font-mono text-sky-400">{result.edge.colo}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-zinc-500 uppercase">Kraj</span>
+                  <span className="uppercase text-zinc-500">Kraj</span>
                   <span className="text-zinc-300">{result.edge.country}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-zinc-500 uppercase">Miasto</span>
+                  <span className="uppercase text-zinc-500">Miasto</span>
                   <span className="text-zinc-300">{result.edge.city || 'N/A'}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-zinc-500 uppercase">Kontynent</span>
+                  <span className="uppercase text-zinc-500">Kontynent</span>
                   <span className="text-zinc-300">{result.edge.continent}</span>
                 </div>
               </div>
@@ -360,12 +369,12 @@ function SecurityCard({ result }: { result: LookupResult }) {
   const barColor = isAbuser ? "bg-red-500" : "bg-emerald-500"
 
   return (
-    <Card className="bg-zinc-900/80 border border-zinc-800 rounded-3xl shadow-xl backdrop-blur-sm relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+    <Card className="relative overflow-hidden border shadow-xl bg-zinc-900/80 border-zinc-800 rounded-3xl backdrop-blur-sm">
+      <div className="absolute top-0 right-0 w-32 h-32 -mt-16 -mr-16 rounded-full pointer-events-none bg-red-500/5 blur-3xl"></div>
 
-      <CardContent className="p-6 relative z-10">
-        <div className="flex items-center gap-3 border-b border-zinc-800 pb-4 mb-4">
-          <div className="p-2 bg-red-500/10 rounded-lg">
+      <CardContent className="relative z-10 p-6">
+        <div className="flex items-center gap-3 pb-4 mb-4 border-b border-zinc-800">
+          <div className="p-2 rounded-lg bg-red-500/10">
             <Shield className="w-6 h-6 text-red-500" />
           </div>
           <h2 className="text-lg font-semibold text-zinc-100">Bezpieczeństwo</h2>
@@ -374,19 +383,19 @@ function SecurityCard({ result }: { result: LookupResult }) {
         <div className="space-y-4">
           {/* Abuse score indicator */}
           <div>
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-zinc-400 text-xs uppercase tracking-wider font-semibold">Wskaźnik nadużyć</span>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold tracking-wider uppercase text-zinc-400">Wskaźnik nadużyć</span>
               <span className={`${scoreColor} text-sm font-bold`}>{scoreText}</span>
             </div>
-            <div className="w-full bg-zinc-800 rounded-full h-2">
+            <div className="w-full h-2 rounded-full bg-zinc-800">
               <div className={`${barColor} h-2 rounded-full transition-all duration-1000`} style={{ width: `${abuserScore}%` }}></div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
             {/* AbuseIPDB Info */}
             {abuseipdb && (
-              <div className="bg-zinc-800/50 p-3 rounded-xl border border-zinc-700/50">
+              <div className="p-3 border bg-zinc-800/50 rounded-xl border-zinc-700/50">
                 <div className="text-zinc-500 text-[10px] uppercase mb-1 flex justify-between items-center">
                   <span>AbuseIPDB</span>
                   <a
@@ -416,16 +425,16 @@ function SecurityCard({ result }: { result: LookupResult }) {
             )}
 
             {/* Abuse contact */}
-            <div className="bg-zinc-800/50 p-3 rounded-xl border border-zinc-700/50">
+            <div className="p-3 border bg-zinc-800/50 rounded-xl border-zinc-700/50">
               <div className="text-zinc-500 text-[10px] uppercase mb-1">Kontakt Abuse</div>
               <div className="text-zinc-200 text-[11px] font-medium truncate">{ipapi?.abuse?.email || 'N/A'}</div>
               <div className="text-zinc-400 text-[10px] truncate">{ipapi?.abuse?.name || ''}</div>
             </div>
 
             {/* Abuser scores */}
-            <div className="bg-zinc-800/50 p-3 rounded-xl border border-zinc-700/50 sm:col-span-2">
+            <div className="p-3 border bg-zinc-800/50 rounded-xl border-zinc-700/50 sm:col-span-2">
               <div className="text-zinc-500 text-[10px] uppercase mb-1">Abuser Score (ASN/Company)</div>
-              <div className="flex justify-between items-center gap-4">
+              <div className="flex items-center justify-between gap-4">
                 <div className="flex flex-col">
                   <span className="text-zinc-500 text-[9px] uppercase">ASN</span>
                   <span className={`text-xs ${ipapi?.asn?.abuser_score?.includes('Low') ? 'text-emerald-500' : 'text-red-400'} font-mono`}>
@@ -444,9 +453,9 @@ function SecurityCard({ result }: { result: LookupResult }) {
 
           {/* Abuser warning */}
           {ipapi?.is_abuser && (
-            <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400">
+            <div className="flex items-center gap-2 p-3 text-red-400 border bg-red-500/10 border-red-500/20 rounded-xl">
               <AlertCircle className="w-5 h-5" />
-              <div className="text-xs font-semibold uppercase tracking-wider">Wykryto jako nadużycie!</div>
+              <div className="text-xs font-semibold tracking-wider uppercase">Wykryto jako nadużycie!</div>
             </div>
           )}
         </div>
@@ -460,9 +469,9 @@ function GeoDetailsCard({ result }: { result: LookupResult }) {
 
   if (!location) {
     return (
-      <Card className="lg:col-span-2 bg-zinc-900/80 border border-zinc-800 rounded-3xl shadow-xl backdrop-blur-sm">
+      <Card className="border shadow-xl lg:col-span-2 bg-zinc-900/80 border-zinc-800 rounded-3xl backdrop-blur-sm">
         <CardContent className="p-6">
-          <div className="text-zinc-600 text-sm italic">Brak danych geograficznych.</div>
+          <div className="text-sm italic text-zinc-600">Brak danych geograficznych.</div>
         </CardContent>
       </Card>
     )
@@ -487,10 +496,10 @@ function GeoDetailsCard({ result }: { result: LookupResult }) {
   }
 
   return (
-    <Card className="lg:col-span-2 bg-zinc-900/80 border border-zinc-800 rounded-3xl shadow-xl backdrop-blur-sm">
+    <Card className="border shadow-xl lg:col-span-2 bg-zinc-900/80 border-zinc-800 rounded-3xl backdrop-blur-sm">
       <CardContent className="p-6">
-        <div className="flex items-center gap-3 mb-6 border-b border-zinc-800 pb-4">
-          <div className="p-2 bg-emerald-500/10 rounded-lg">
+        <div className="flex items-center gap-3 pb-4 mb-6 border-b border-zinc-800">
+          <div className="p-2 rounded-lg bg-emerald-500/10">
             <Globe className="w-6 h-6 text-emerald-500" />
           </div>
           <h2 className="text-lg font-semibold text-zinc-100">Szczegóły Geograficzne</h2>
@@ -516,10 +525,10 @@ function GeoDetailsCard({ result }: { result: LookupResult }) {
 function ASNSection({ data, loading }: { data: any, loading: boolean }) {
   if (loading) {
     return (
-      <Card className="bg-zinc-900/80 border border-zinc-800 rounded-3xl shadow-xl backdrop-blur-sm">
-        <CardContent className="p-12 flex items-center justify-center">
+      <Card className="border shadow-xl bg-zinc-900/80 border-zinc-800 rounded-3xl backdrop-blur-sm">
+        <CardContent className="flex items-center justify-center p-12">
           <div className="flex flex-col items-center gap-4 text-zinc-500">
-            <svg className="animate-spin h-8 w-8 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg className="w-8 h-8 text-purple-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -533,19 +542,19 @@ function ASNSection({ data, loading }: { data: any, loading: boolean }) {
   const asnData = (data.asn && typeof data.asn === 'object') ? data.asn : data
 
   return (
-    <Card className="bg-zinc-900/80 border border-zinc-800 rounded-3xl shadow-xl backdrop-blur-sm">
+    <Card className="border shadow-xl bg-zinc-900/80 border-zinc-800 rounded-3xl backdrop-blur-sm">
       <CardContent className="p-6">
-        <div className="flex items-center gap-3 mb-6 border-b border-zinc-800 pb-4">
-          <div className="p-2 bg-purple-500/10 rounded-lg">
+        <div className="flex items-center gap-3 pb-4 mb-6 border-b border-zinc-800">
+          <div className="p-2 rounded-lg bg-purple-500/10">
             <Network className="w-6 h-6 text-purple-500" />
           </div>
           <h2 className="text-lg font-semibold text-zinc-100">Informacje o ASN</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Info grid */}
-          <div className="bg-zinc-800/30 rounded-2xl p-5 border border-zinc-700/30 space-y-3 lg:col-span-2">
-            <h3 className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-4">Podstawowe informacje o ASN</h3>
+          <div className="p-5 space-y-3 border bg-zinc-800/30 rounded-2xl border-zinc-700/30 lg:col-span-2">
+            <h3 className="mb-4 text-xs font-bold tracking-wider uppercase text-zinc-400">Podstawowe informacje o ASN</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
               <InfoRow label="Numer ASN" value={`AS${asnData.asn}`} />
               <InfoRow label="Organizacja" value={asnData.org} />
@@ -556,8 +565,8 @@ function ASNSection({ data, loading }: { data: any, loading: boolean }) {
               <InfoRow label="Ostatnia aktualizacja" value={asnData.updated} />
               <InfoRow label="RIR" value={asnData.rir} />
               <InfoRow label="Abuse Email" value={asnData.abuse} />
-              <div className="flex justify-between items-center border-b border-zinc-800/50 pb-2 last:border-0 last:pb-0">
-                <span className="text-zinc-500 text-xs">Domena</span>
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-800/50 last:border-0 last:pb-0">
+                <span className="text-xs text-zinc-500">Domena</span>
                 {asnData.domain ? (
                   <a
                     href={`http://${asnData.domain}`}
@@ -568,24 +577,24 @@ function ASNSection({ data, loading }: { data: any, loading: boolean }) {
                     {asnData.domain}
                   </a>
                 ) : (
-                  <span className="text-zinc-200 font-medium text-sm">N/A</span>
+                  <span className="text-sm font-medium text-zinc-200">N/A</span>
                 )}
               </div>
             </div>
           </div>
 
           {/* Summary card */}
-          <div className="bg-zinc-800/30 rounded-2xl p-5 border border-zinc-700/30 flex flex-col justify-center items-center text-center">
-            <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mb-4 text-purple-500">
+          <div className="flex flex-col items-center justify-center p-5 text-center border bg-zinc-800/30 rounded-2xl border-zinc-700/30">
+            <div className="flex items-center justify-center w-16 h-16 mb-4 text-purple-500 rounded-full bg-purple-500/10">
               <Globe className="w-8 h-8" />
             </div>
-            <div className="text-zinc-200 font-bold text-xl mb-1">{asnData.org}</div>
-            <div className="text-zinc-500 text-xs uppercase tracking-widest">{asnData.country} • {asnData.type}</div>
+            <div className="mb-1 text-xl font-bold text-zinc-200">{asnData.org}</div>
+            <div className="text-xs tracking-widest uppercase text-zinc-500">{asnData.country} • {asnData.type}</div>
             <a
               href={`https://api.ipapi.is/?q=AS${asnData.asn}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-6 text-xs text-sky-400 border border-sky-500/30 px-4 py-2 rounded-full hover:bg-sky-500/10 transition-colors"
+              className="px-4 py-2 mt-6 text-xs transition-colors border rounded-full text-sky-400 border-sky-500/30 hover:bg-sky-500/10"
             >
               Zobacz WHOIS w ipapi.is
             </a>
@@ -598,11 +607,11 @@ function ASNSection({ data, loading }: { data: any, loading: boolean }) {
 
 function DNSSection({ result }: { result: LookupResult }) {
   return (
-    <Card className="bg-zinc-900/80 border border-zinc-800 rounded-3xl shadow-xl backdrop-blur-sm">
+    <Card className="border shadow-xl bg-zinc-900/80 border-zinc-800 rounded-3xl backdrop-blur-sm">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-zinc-200">Rekordy DNS</h2>
-          <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded">Live Lookup</span>
+          <span className="px-2 py-1 text-xs rounded text-zinc-500 bg-zinc-800">Live Lookup</span>
         </div>
         <DNSTable records={result.dns} />
       </CardContent>
@@ -634,8 +643,8 @@ function InfoRow({
   }
 
   return (
-    <div className="flex justify-between items-center border-b border-zinc-800/50 py-2 last:border-0">
-      <span className="text-zinc-500 text-xs">{label}</span>
+    <div className="flex items-center justify-between py-2 border-b border-zinc-800/50 last:border-0">
+      <span className="text-xs text-zinc-500">{label}</span>
       {isLink && onClick ? (
         <button
           onClick={onClick}
@@ -651,7 +660,7 @@ function InfoRow({
           onClick={handleCopy}
           className="text-zinc-200 hover:text-sky-400 font-medium text-sm text-right truncate max-w-[60%] transition-colors flex items-center gap-1 ml-auto group"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3 h-3 transition-opacity opacity-0 group-hover:opacity-100">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
           </svg>
           {displayValue}

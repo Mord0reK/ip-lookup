@@ -26,24 +26,24 @@ export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
   return (
     <form onSubmit={handleSubmit} className="flex w-full max-w-xl gap-2">
       <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute w-4 h-4 -translate-y-1/2 left-3 top-1/2 text-muted-foreground" />
         <Input
           type="text"
-          placeholder="Enter IP address or domain..."
+          placeholder="Wpisz adres IP lub domenę..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="pl-10 h-11"
           disabled={isLoading}
         />
       </div>
-      <Button type="submit" disabled={isLoading} className="h-11 px-5">
+      <Button type="submit" disabled={isLoading} className="px-5 h-11">
         {isLoading ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Searching...
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Wyszukiwanie...
           </>
         ) : (
-          "Search"
+          "Wyszukaj"
         )}
       </Button>
     </form>
