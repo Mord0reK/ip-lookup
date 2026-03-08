@@ -134,7 +134,7 @@ export default function HomePage() {
       />
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1 h-screen min-w-0 overflow-y-auto">
+      <div className="flex flex-col flex-1 h-screen min-w-0 overflow-y-auto lg:ml-80">
         {/* Header/Navbar */}
         <header className="sticky top-0 z-20 border-b border-zinc-800 bg-black/50 backdrop-blur-md shrink-0">
           <div className="relative flex items-center justify-between w-full h-16 gap-4 px-4 lg:px-6 lg:justify-center">
