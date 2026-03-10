@@ -34,6 +34,7 @@ export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
           onChange={(e) => setQuery(e.target.value)}
           className="pl-10 h-11"
           disabled={isLoading}
+          autoFocus
         />
       </div>
       <Button type="submit" disabled={isLoading} className="px-5 h-11">
