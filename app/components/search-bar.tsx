@@ -11,6 +11,41 @@ interface SearchBarProps {
   isLoading: boolean
 }
 
+/**
+ * Extracts domain from various URL formats:
+ * - https://example.com -> example.com
+ * - http://example.com/path -> example.com
+ * - www.example.com -> example.com
+ * - example.com/path -> example.com
+ * - <a href="example.com"> -> example.com
+ */
+function sanitizeQuery(input: string): string {
+  let cleaned = input.trim()
+  
+  // Remove HTML tags (e.g., <a href="example.com">link</a>)
+  cleaned = cleaned.replace(/<[^>]*>/g, '')
+  
+  // Extract URL from HTML attributes (href="...", src="...")
+  const hrefMatch = cleaned.match(/(?:href|src)=["']([^"']+)["']/i)
+  if (hrefMatch) {
+    cleaned = hrefMatch[1]
+  }
+  
+  // Remove protocol (http://, https://, ftp://, etc.)
+  cleaned = cleaned.replace(/^[a-z]+:\/\//i, '')
+  
+  // Remove path, query params, and hash
+  cleaned = cleaned.split('/')[0].split('?')[0].split('#')[0]
+  
+  // Remove www. prefix if present
+  cleaned = cleaned.replace(/^www\./i, '')
+  
+  // Remove port number if present
+  cleaned = cleaned.split(':')[0]
+  
+  return cleaned.toLowerCase()
+}
+
 export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
   const [query, setQuery] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
@@ -21,7 +56,11 @@ export function SearchBar({ onSearch, isLoading }: SearchBarProps) {
       toast.error("Please enter an IP address or domain")
       return
     }
-    onSearch(query.trim())
+    const sanitized = sanitizeQuery(query)
+    if (sanitized !== query.trim().toLowerCase()) {
+      setQuery(sanitized)
+    }
+    onSearch(sanitized)
   }
 
   useEffect(() => {
